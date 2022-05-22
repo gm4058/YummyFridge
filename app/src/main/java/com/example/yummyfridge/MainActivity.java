@@ -87,6 +87,9 @@ public class MainActivity extends Activity {
         ImageView tabwidget04 = new ImageView(this);
         tabwidget04.setImageResource(R.drawable.bookmark);
 
+        ImageView tabwidget05 = new ImageView(this);
+        tabwidget05.setImageResource(R.drawable.findrecipe);
+
         //탭에 이미지 생성한 것 넣어주기
         TabHost.TabSpec tabFridge = tabHost.newTabSpec("FRIDGE").setIndicator(tabwidget01);
         tabFridge.setContent(R.id.fridge);
@@ -103,6 +106,10 @@ public class MainActivity extends Activity {
         TabHost.TabSpec tabBookmark = tabHost.newTabSpec("Bookmark").setIndicator(tabwidget04);
         tabBookmark.setContent(R.id.bookmark);
         tabHost.addTab(tabBookmark);
+
+        TabHost.TabSpec tabfindrecipe = tabHost.newTabSpec("findrecipe").setIndicator(tabwidget05);
+        tabfindrecipe.setContent(R.id.findrecipe);
+        tabHost.addTab(tabfindrecipe);
 
         fridge_listView = (ListView) findViewById(R.id.fridge_list);
         fridge_adapter = new ListViewAdapter(MainActivity.this);
@@ -150,6 +157,39 @@ public class MainActivity extends Activity {
             }
         });
 
+        //직접 레시피 검색
+        final ArrayList<String> findlist = new ArrayList<String>();
+        ListView findlistview = (ListView) findViewById(R.id.recipelistview);
+        final ArrayAdapter<String> adapter3 = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_multiple_choice, findlist);
+        findlistview.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+        findlistview.setAdapter(adapter3);
+        Button findrecipebutton = (Button) findViewById(R.id.findrecipebutton);
+        final EditText inputfindrecipe = (EditText) findViewById(R.id.inputfindrecipe);
+
+        findrecipebutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                findlist.add(inputfindrecipe.getText().toString());
+                adapter3.notifyDataSetChanged();
+            }
+        });
+
+        findlistview.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+                findlist.remove(i);
+                adapter3.notifyDataSetChanged();
+                return false;
+            }
+        });
+
+        findlistview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                Intent mIntent=new Intent(Intent.ACTION_VIEW, Uri.parse("https://search.naver.com/search.naver?sm=tab_hty.top&where=nexearch&query="+findlist.get(i)+"레시피"));
+                startActivity(mIntent);
+            }
+        });
 
         // 식재료 추가 페이지로 넘어가기
         ImageButton btnmanager = (ImageButton) findViewById(R.id.btnmanager);
@@ -209,7 +249,6 @@ public class MainActivity extends Activity {
             super.onActivityResult(requestCode, resultCode, data);
             restart(MainActivity.this);
         }
-
 
     public void getVal() {
 
