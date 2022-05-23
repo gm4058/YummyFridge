@@ -145,15 +145,10 @@
                         android:layout_height="wrap_content"
                         android:text="레시피 찾기" />
 
-                    <ScrollView
+                    <ListView
+                        android:id="@+id/recipelistview"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ListView
-                            android:id="@+id/recipelistview"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content" />
-                    </ScrollView>
+                        android:layout_height="wrap_content" />
 
                 </LinearLayout>
 
