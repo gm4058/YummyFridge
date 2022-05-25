@@ -49,16 +49,15 @@ import java.util.List;
 
 @SuppressWarnings("deprecation")
 public class MainActivity extends Activity {
-
+    SearchDatabaseHelper myDB_Search;
     //Data[] list_data;
     String val = "";
-
     MyDatabaseHelper myDB;
-    ArrayList <String> fridge_ingredients, fridge_type, fridge_date;
+    ArrayList <String> fridge_ingredients, fridge_type, fridge_date, search_ingredients;
     ArrayList<String> recipe_name, recipe_info, recipe_image, recipe_star;
     ArrayList<String> star_name, star_info, star_image, star_star, star_sql;
-    ListView fridge_listView, recipe_listView, star_listView;
-    ListViewAdapter fridge_adapter;
+    ListView fridge_listView, recipe_listView, star_listView,search_listView;
+    ListViewAdapter fridge_adapter, search_adapter;
     RecipeListViewAdapter recipe_adapter, star_adapter;
     TextView myFridge;
     Bitmap bmp;
@@ -69,7 +68,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        myDB_Search = new SearchDatabaseHelper(MainActivity.this);
         TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
         tabHost.setup();
         TabHost.TabSpec spec;
@@ -123,6 +122,10 @@ public class MainActivity extends Activity {
         star_adapter = new RecipeListViewAdapter(MainActivity.this);
         star_listView.setAdapter(star_adapter);
 
+        search_listView = (ListView) findViewById(R.id.recipelistview);
+        search_adapter = new ListViewAdapter(MainActivity.this);
+        search_listView.setAdapter(search_adapter);
+
         //장 볼 리스트
         final ArrayList<String> cklist = new ArrayList<String>();
         ListView cklistview = (ListView) findViewById(R.id.checklistview);
@@ -159,36 +162,43 @@ public class MainActivity extends Activity {
 
         //직접 레시피 검색
         final ArrayList<String> findlist = new ArrayList<String>();
-        ListView findlistview = (ListView) findViewById(R.id.recipelistview);
         final ArrayAdapter<String> adapter3 = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_multiple_choice, findlist);
-        findlistview.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-        findlistview.setAdapter(adapter3);
-        Button findrecipebutton = (Button) findViewById(R.id.findrecipebutton);
         final EditText inputfindrecipe = (EditText) findViewById(R.id.inputfindrecipe);
 
+
+        Button findrecipebutton = (Button) findViewById(R.id.findrecipebutton);
         findrecipebutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                findlist.add(inputfindrecipe.getText().toString());
-                adapter3.notifyDataSetChanged();
+                SearchDatabaseHelper myDB2 = new SearchDatabaseHelper(MainActivity.this);
+                myDB2.addSearch(inputfindrecipe.getText().toString());
+                search_ingredients.add(inputfindrecipe.getText().toString());
+                search_adapter.notifyDataSetChanged();
+                restart(MainActivity.this);
             }
         });
 
-        findlistview.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+        search_listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-                findlist.remove(i);
-                adapter3.notifyDataSetChanged();
+                SearchDatabaseHelper myDB2 = new SearchDatabaseHelper(MainActivity.this);
+                myDB2.deleteOneRow(search_ingredients.get(i));
+                search_ingredients.remove(i);
+                //fridge_adapter.removeItem(i);
+                //fridge_listView.setAdapter(fridge_adapter);
+                restart(MainActivity.this);
                 return false;
             }
         });
 
-        findlistview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        search_listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
+
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                Intent mIntent=new Intent(Intent.ACTION_VIEW, Uri.parse("https://search.naver.com/search.naver?sm=tab_hty.top&where=nexearch&query="+findlist.get(i)+"레시피"));
+                Intent mIntent=new Intent(Intent.ACTION_VIEW, Uri.parse("https://search.naver.com/search.naver?sm=tab_hty.top&where=nexearch&query="+search_ingredients.get(i)+"레시피"));
                 startActivity(mIntent);
             }
+
         });
 
         // 식재료 추가 페이지로 넘어가기
@@ -208,6 +218,11 @@ public class MainActivity extends Activity {
         fridge_date = new ArrayList<>();
         storeDataInArrays();
         displayData();
+
+        //레시피 찾기
+        search_ingredients = new ArrayList<>();
+        searchDataInArrays();
+        displayData_search();
 
         //재료 삭제
         fridge_listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -257,6 +272,10 @@ public class MainActivity extends Activity {
 
         StarDatabaseHelper dbHelper2 = new StarDatabaseHelper(this);
         SQLiteDatabase db2 = dbHelper2.getReadableDatabase();
+
+        SearchDatabaseHelper dbHelper3 = new SearchDatabaseHelper(this);
+        SQLiteDatabase db3 = dbHelper3.getReadableDatabase();
+
         int star=0;
         String[] strData=fridge_ingredients.toArray(new String[fridge_ingredients.size()]);
 
@@ -310,7 +329,6 @@ public class MainActivity extends Activity {
         dbHelper2.close();
         dbHelper.close();
     }
-
     public void getStar() {
         DataBaseHelper dbHelper = new DataBaseHelper(this);
         SQLiteDatabase db = dbHelper.getReadableDatabase();
@@ -355,7 +373,17 @@ public class MainActivity extends Activity {
             }
         }
     }
-
+    void searchDataInArrays(){
+        Cursor cursor1 = myDB_Search.readAllData();
+        if(cursor1.getCount() == 0){
+            Toast.makeText(this, "No data.", Toast.LENGTH_SHORT).show();
+        }else{
+            while (cursor1.moveToNext()){
+                search_ingredients.add(cursor1.getString(0));
+                search_adapter.notifyDataSetChanged();
+            }
+        }
+    }
     void displayData(){
         for(int i=0;i<fridge_ingredients.size();i++){
             int image=0;
@@ -385,6 +413,13 @@ public class MainActivity extends Activity {
             fridge_adapter.addItem(ContextCompat.getDrawable(this, image), fridge_ingredients.get(i),fridge_date.get(i));
         }
         fridge_adapter.notifyDataSetChanged();
+    }
+    void displayData_search(){
+        for(int i=0;i<search_ingredients.size();i++){
+
+            search_adapter.addItem2(search_ingredients.get(i));
+        }
+        search_adapter.notifyDataSetChanged();
     }
 
     void displayRecipe( ArrayList<String> recipe_name, ArrayList<String> recipe_info, ArrayList<String> recipe_image, ArrayList<String> recipe_star, int type){

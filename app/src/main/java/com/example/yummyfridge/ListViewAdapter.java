@@ -86,6 +86,13 @@ public class ListViewAdapter extends BaseAdapter {
 
         listItems.add(listItem);
     }
+    public void addItem2(String text1){
+        ListItem listItem = new ListItem();
+
+        listItem.setText1(text1);
+
+        listItems.add(listItem);
+    }
 
     //public void removeItem(int pos){
       //  listItems.remove(pos);
