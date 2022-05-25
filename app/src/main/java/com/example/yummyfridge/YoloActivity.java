@@ -1,11 +1,9 @@
 package com.example.yummyfridge;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-
 import android.Manifest;
-import android.content.ComponentName;
+import android.app.AlarmManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -14,9 +12,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
-import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -25,17 +21,16 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Spinner;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.JavaCameraView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
-import org.opencv.*;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfRect;
@@ -43,24 +38,34 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.dnn.Dnn;
 import org.opencv.dnn.Net;
 import org.opencv.imgproc.Imgproc;
-
-import org.opencv.dnn.Dnn;
 import org.opencv.utils.Converters;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-
 import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
-import java.nio.Buffer;
-import java.util.Random;
+
+
 public class YoloActivity extends AppCompatActivity {
+
+    private AlarmManager alarmManager;
+    private GregorianCalendar mCalender;
+
+    private NotificationManager notificationManager;
+    NotificationCompat.Builder builder;
+
 
     final private static String TAG = "GILBOMI";
     Button btn_photo, btn_addFood;
@@ -245,6 +250,15 @@ public class YoloActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.add_item);
 
+        notificationManager = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+
+        alarmManager = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+
+        mCalender = new GregorianCalendar();
+
+        Log.v("등록하신 음식이 위험해요!", mCalender.getTime().toString());
+
+
         //opencv 로드
         boolean load = OpenCVLoader.initDebug();
         if (load) {
@@ -275,8 +289,8 @@ public class YoloActivity extends AppCompatActivity {
             if(checkSelfPermission(Manifest.permission.CAMERA) ==
                     PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
                     PackageManager.PERMISSION_GRANTED) { Log.d(TAG, "권한 설정 완료"); } else { Log.d(TAG, "권한 설정 요청");
-                    ActivityCompat.requestPermissions(YoloActivity.this, new String[]{
-                            Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+                ActivityCompat.requestPermissions(YoloActivity.this, new String[]{
+                        Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
             }
         } btn_photo.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { switch (v.getId()) {
@@ -304,7 +318,7 @@ public class YoloActivity extends AppCompatActivity {
 
         //날짜(유통기한) 가져오기
         date=(DatePicker)findViewById(R.id.addDate);
-        date.init(2021, 5, 1, new DatePicker.OnDateChangedListener() {
+        date.init(2022, 5, 20, new DatePicker.OnDateChangedListener() {
             @Override
             public void onDateChanged(DatePicker datePicker, int i, int i1, int i2) {
 
@@ -324,14 +338,35 @@ public class YoloActivity extends AppCompatActivity {
         btn_addFood.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                    MyDatabaseHelper myDB = new MyDatabaseHelper(YoloActivity.this);
-                    String fulldate= date.getYear()+"/"+(date.getMonth()+1)+"/"+date.getDayOfMonth();
-                    myDB.addFridge(addIngredients.getText().toString().trim(), addType.getSelectedItem().toString().trim(), fulldate.trim());
+                MyDatabaseHelper myDB = new MyDatabaseHelper(YoloActivity.this);
+                String fulldate= date.getYear()+"/"+(date.getMonth()+1)+"/"+date.getDayOfMonth();
+                myDB.addFridge(addIngredients.getText().toString().trim(), addType.getSelectedItem().toString().trim(), fulldate.trim());
+                setAlarm();
             }
         });
-
     }
 
+    private void setAlarm() {
+        //AlarmReceiver에 값 전달
+        Intent receiverIntent = new Intent(YoloActivity.this, AlarmRecevier.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(YoloActivity.this, 0, receiverIntent, 0);
+
+        String from = date.getYear()+"-"+(date.getMonth()+1)+"-"+date.getDayOfMonth() + " " + "09:00:00";
+
+        //날짜 포맷을 바꿔주는 소스코드
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date datetime = null;
+        try {
+            datetime = dateFormat.parse(from);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(datetime);
+
+        alarmManager.set(AlarmManager.RTC, calendar.getTimeInMillis(),pendingIntent);
+    }
 
     // 권한 요청
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults)
@@ -342,7 +377,7 @@ public class YoloActivity extends AppCompatActivity {
             Log.d(TAG, "Permission: " + permissions[0] + "was " + grantResults[0]); } }
 
 
-   // 카메라로 촬영한 사진의 썸네일을 가져와 이미지뷰에 띄워줌
+    // 카메라로 촬영한 사진의 썸네일을 가져와 이미지뷰에 띄워줌
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent intent)
     {
         super.onActivityResult(requestCode, resultCode, intent);
